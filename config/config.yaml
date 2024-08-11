@@ -1,0 +1,14 @@
+data:
+  train_dir: ./data/raw/device/train
+  test_dir: ./data/raw/device/test
+
+training:
+  batch_size: 500
+  epochs: 10
+  learning_rate: 0.02
+  
+params:
+  num_device: [3, 5, 7, 9, 11, 13]
+  num_RIS: [5, 10, 15, 20, 40]
+  transmit_power: [0, 2, 4, 6, 8, 10, 12]
+  
