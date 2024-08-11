@@ -51,6 +51,11 @@ def generate_channel_device():
             random_state=1
         )
 
+        train_dir = './raw/device/train'
+        test_dir = './raw/device/test'
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(test_dir, exist_ok=True)
+
         np.save(f'./raw/device/train/train_combined_channel_device{num_device}.npy', train_data)
         np.save(f'./raw/device/test/test_combined_channel_device{num_device}.npy', test_data)
 
