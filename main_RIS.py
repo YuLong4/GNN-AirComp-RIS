@@ -20,7 +20,7 @@ var_shadow_fading = 1  # Variance of shadow fading, sigma_{0}^{2}
 feature_noise_var = 0.4
 
 
-def train(GNN, train_loader, optimizer, epochs, num_device, power_bar, nu, num_RIS):
+def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, num_RIS):
     batch_size = train_loader.batch_size
     loss_history = []
     for epoch in range(epochs):
@@ -66,7 +66,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, power_bar, nu, num_R
 
             regulazier = torch.zeros((batch_size, num_device)).cuda()
             for k in range(num_device):
-                regulazier[:, k] = torch.abs(c[:, k] ** 2 - power_bar[k] * batch_channel_coefficient[:, k] *
+                regulazier[:, k] = torch.abs(c[:, k] ** 2 - p_bar[k] * batch_channel_coefficient[:, k] *
                                              (f1 ** 2 + f2 ** 2) * batch_channel_coefficient[:, k])
 
             discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2), num_feature)).cuda()
@@ -92,7 +92,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, power_bar, nu, num_R
 
         print(f'Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}')
 
-    torch.save(GNN.state_dict(), f'./save_model/models/GNN_model_power_{power_bar}.pth')
+    torch.save(GNN.state_dict(), f'./save_model/models/GNN_model_RIS_{num_RIS}.pth')
 
     plt.plot(loss_history, label='Training Loss')
     plt.xlabel('iters')
@@ -148,20 +148,20 @@ def main():
     num_RIS_list = config['params']['num_RIS']
     discriminant_gains = []
 
-    train_dataset = CustomDataset(config['data']['power']['train_dir'] + f'/train_combined_channel_power_general.npy')
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
-    test_dataset = CustomDataset(config['data']['power']['test_dir'] + f'/test_combined_channel_power_general.npy')
-    test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
-    
-    for power_bar in power_bar_list:
-        model_path = f'./save_model/models/GNN_model_power_{power_bar}.pth'
+    for num_RIS in num_RIS_list:
+        train_dataset = CustomDataset(config['data']['RIS']['train_dir'] + f'/train_combined_channel_RIS{num_RIS}.npy')
+        train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
+        test_dataset = CustomDataset(config['data']['RIS']['test_dir'] + f'/test_combined_channel_RIS{num_RIS}.npy')
+        test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
+        model_path = f'./save_model/models/GNN_model_RIS_{num_RIS}.pth'
+
         GNN = Graph_net(2, num_device, num_RIS)
         
         if os.path.isfile(model_path):
-            print(f'Model for power {power_bar} already exists. Skipping training.')
+            print(f'Model for RIS {num_RIS} already exists. Skipping training.')
             GNN.load_state_dict(torch.load(model_path, weights_only=True))
         else:
-            p_bar = [dbm2pw(power_bar) for _ in range(num_device)]
+            p_bar = [dbm2pw(50) for _ in range(num_device)]
             nu = 1
             optimizer = optim.SGD(GNN.parameters(), lr=config['training']['learning_rate'])
             train(
@@ -170,14 +170,15 @@ def main():
                 optimizer=optimizer,
                 epochs=config['training']['epochs'],
                 num_device=num_device,
-                power_bar=p_bar,
-                nu=nu
+                p_bar=p_bar,
+                nu=nu,
+                num_RIS=num_RIS
             )
         discriminant_gain = evaluate(GNN, test_loader, num_device)
         discriminant_gains.append(discriminant_gain)
 
-    plt.plot(power_bar_list, discriminant_gains, marker='o')
-    plt.xlabel('Value of Power bar')
+    plt.plot(num_RIS_list, discriminant_gains, marker='o')
+    plt.xlabel('Number of RIS')
     plt.ylabel('Discriminant Gain')
     plt.grid(True)
     plt.show()
