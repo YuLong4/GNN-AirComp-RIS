@@ -1,6 +1,13 @@
 data:
-  train_dir: ./data/raw/device/train
-  test_dir: ./data/raw/device/test
+  device:
+    train_dir: ./data/raw/device/train
+    test_dir: ./data/raw/device/test
+  power:
+    train_dir: ./data/raw/power/train
+    test_dir: ./data/raw/power/test
+  RIS:
+    train_dir: ./data/raw/RIS/train
+    test_dir: ./data/raw/RIS/test
 
 training:
   batch_size: 500
@@ -8,7 +15,7 @@ training:
   learning_rate: 0.02
   
 params:
-  num_device: [3, 5, 7, 9, 11, 13]
-  num_RIS: [5, 10, 15, 20, 40]
-  transmit_power: [0, 2, 4, 6, 8, 10, 12]
+  num_device: [3, 5, 7, 9, 11, 13, 18, 25]
+  num_RIS: [5, 10, 15, 20, 30]
+  power_bar: [0, 5, 10, 20, 50]
   
