@@ -13,18 +13,18 @@ data_test_pca_normed = np.load('./save_model/save_mean_variance/data_test_pca_no
 label_test = np.load('./save_model/save_mean_variance/label_test_12dim.npy', allow_pickle=True)
 
 # parameters
-num_antenna = 8  # number of antenna, N
+num_antenna = 1  # number of antenna, N
 PCA_dim = 12  # PCA dimension, M
-num_device = 3  # number of devices, K
+num_device = 10  # number of devices, K
 num_class = 4  # number of classes, L
-num_ris = 5  ## #number of passive reflecting element equipped by RIS
+num_ris = 20  ## #number of passive reflecting element equipped by RIS
 
 var_dist_scale = 0.4
 var_comm_noise = 1  # communication noise, sigma_{0}^{2}
-rng = default_rng(2022)
+rng = default_rng()
 var_dist = rng.uniform(0, var_dist_scale, (num_device, PCA_dim))  # variance of distortion, delta_{k,m}
 
-power_mdB = 24
+power_mdB = 50
 power_tx = 10 ** ( (power_mdB-30) / 10 )  # transmit power, P_{k}
 #power_tx = 0.1  # transmit power, P_{k}
 bandwidth = 1.5 * 10**6
@@ -88,7 +88,7 @@ for k in range(num_device):
 c_zf_init = np.zeros((num_device,1))
 
 for k in range(num_device):
-    channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar_init[0:5,]
+    channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar_init[0:num_ris,]
     c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
     c_zf_init[k] = c_zf_k
 
@@ -98,7 +98,7 @@ alpha_init = np.zeros(( int (num_class * (num_class-1) / 2), 2))
 
 #two dimension's PCA
 ##############################################################
-def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device):
+def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device, idx):
     
     for idx_class_a in range(num_class):
         for idx_class_b in range(idx_class_a):
@@ -123,9 +123,9 @@ def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power
         for k in range(num_device):
             xk = f_vec_init.T @ channel_gain_hd[:,k]
             yk = f_vec_init.T @ channel_gain_R @ np.diag(channel_gain_hr[:,k])
-            Yk = np.bmat([[(- yk.T @ yk), np.zeros((5,5))],[np.zeros((5,5)), (- yk.T @ yk)]])
+            Yk = np.bmat([[(- yk.T @ yk), np.zeros((num_ris,num_ris))],[np.zeros((num_ris,num_ris)), (- yk.T @ yk)]])
            
-            Zk = np.hstack([(xk @ yk), np.zeros((5))])
+            Zk = np.hstack([(xk @ yk), np.zeros((num_ris))])
             x += [xk]
             Y += [Yk]
             Z += [Zk]
@@ -174,7 +174,7 @@ def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power
         stepsize = 0.1
 
         c_zf_init = c_zf.value * stepsize + c_zf_init * (1-stepsize)
-        v_bar_init = v_bar.value * stepsize + v_bar_init.reshape(-1) * (1-stepsize)####
+        v_bar_init = v_bar.value * stepsize + v_bar_init.reshape(-1) * (1-stepsize)
         temp1 = alpha[0].value * stepsize
         alpha_init[:, 0] = temp1.reshape(int(num_class * (num_class-1) / 2)) + alpha_init[:, 0] * (1-stepsize)
         temp2 = alpha[1].value * stepsize
@@ -195,7 +195,7 @@ def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power
 
 
 #################### Second round SCA #######################
-def SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device):
+def SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device,idx):
     
     f_vec = cp.Variable((num_antenna))
     alpha = {}
@@ -219,7 +219,7 @@ def SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_
 
     channel_gain_device = []
     for k in range(num_device):
-        channel_gain_k = channel_gain_hd[:,k] + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar[0:5]
+        channel_gain_k = channel_gain_hd[:,k] + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar[0:num_ris]
         channel_gain_device.append(channel_gain_k)
        
     while(diff>1e-2 and count<100):
@@ -280,15 +280,9 @@ def model_inference(data, label, model):
 
 # #####the below is computating the accuracy with the change of number sizes.#####
 num_device_list = np.linspace(1,13,7)
-np.save('./save_model/save_results/num_device_list.npy', num_device_list)
-svm_accuracy_init_list = np.zeros((len(num_device_list), 1))
-mlp_accuracy_init_list = np.zeros((len(num_device_list), 1))
 discriminant_gain_list = np.zeros((len(num_device_list), 1))
-
-# baseline
-svm_accuracy_init_baseline_list = np.zeros((len(num_device_list), 1))
-mlp_accuracy_init_baseline_list = np.zeros((len(num_device_list), 1))
 discriminant_gain_baseline_list = np.zeros((len(num_device_list), 1))
+
 for i in range(len(num_device_list)):
     num_device = int(num_device_list[i])
     var_dist = rng.uniform(0, var_dist_scale, (num_device, PCA_dim))  # variance of distortion, delta_{k,m}
@@ -302,11 +296,11 @@ for i in range(len(num_device_list)):
     # rayli_fading_real = rng.normal(0, 1, (num_device, num_antenna))  # rayleigh fading ~ CN(0,1)
     # rayli_fading_img = rng.normal(0, 1, (num_device, num_antenna))
     rayli_fading_real_hd = rng.normal(0, 1, (num_antenna,1))  # rayleigh fading ~ CN(0,1)
-    rng3 = default_rng(999)
+    rng3 = default_rng()
     rayli_fading_img_hd = rng3.normal(0, 1, (num_antenna,1))
     for j in range(1,num_device):
-        rng2 = default_rng(j)
-        rng3 = default_rng(100-j)
+        rng2 = default_rng()
+        rng3 = default_rng()
         rayli_fading_real_hd = np.hstack((rayli_fading_real_hd,rng2.normal(0, 1, (num_antenna, 1))))   # rayleigh fading ~ CN(0,1)
         rayli_fading_img_hd = np.hstack((rayli_fading_img_hd,rng3.normal(0, 1, (num_antenna, 1))))
 
@@ -321,11 +315,11 @@ for i in range(len(num_device_list)):
     ris_pl_db = ris_pl_db - chl_shadow_std_db
     ris_pl = 10 ** (-ris_pl_db / 10)
     rayli_fading_real_hr = rng.normal(0, 1, (num_ris,1))  # rayleigh fading ~ CN(0,1)
-    rng3 = default_rng(999)
+    rng3 = default_rng()
     rayli_fading_img_hr = rng3.normal(0, 1, (num_ris,1))
     for j in range(1,num_device):
-        rng2 = default_rng(j)
-        rng3 = default_rng(100-j)
+        rng2 = default_rng()
+        rng3 = default_rng()
         rayli_fading_real_hr = np.hstack((rayli_fading_real_hr,rng2.normal(0, 1, (num_ris, 1))))   # rayleigh fading ~ CN(0,1)
         rayli_fading_img_hr = np.hstack((rayli_fading_img_hr,rng3.normal(0, 1, (num_ris, 1))))
 
@@ -367,7 +361,7 @@ for i in range(len(num_device_list)):
         c_zf_init = np.zeros((num_device,1))
 
         for k in range(num_device):
-            channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar_init[0:5,]
+            channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ v_bar_init[0:num_ris,]
             c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
             c_zf_init[k] = c_zf_k
         alpha_init = np.zeros(( int (num_class * (num_class-1) / 2), 2))
@@ -380,8 +374,8 @@ for i in range(len(num_device_list)):
 
 
         while (diff > 1e-2 and count <100):
-            c_zf, v_bar, discri, alpha_init = SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device)
-            c_zf_init,f_vec_init,alpha_init,discri = SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device)
+            c_zf, v_bar, discri, alpha_init = SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device, idx)
+            c_zf_init,f_vec_init,alpha_init,discri = SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device, idx)
             v_bar_init = v_bar
             diff = abs(discri - last_value)
             last_value = discri
@@ -393,27 +387,18 @@ for i in range(len(num_device_list)):
 
     discriminant_gain_list[i] = np.sum(discriminant_gain_init)
 
-    svm_model_file = './save_model/svm_model_{}dimension.pkl'.format(PCA_dim)
-    mlp_model_file = './save_model/mlp_model_{}dimension.pkl'.format(PCA_dim)
 
-    with open(svm_model_file, 'rb') as file:
-        svm_model = pickle.load(file)
-    with open(mlp_model_file, 'rb') as file:
-        mlp_model = pickle.load(file)
-
-    svm_accuracy_init_list[i] = model_inference(data_test_pca_add_noise, label_test, svm_model)
-    mlp_accuracy_init_list[i] = model_inference(data_test_pca_add_noise, label_test, mlp_model)
 
 
     # baseline
     f_vec_init = np.ones((num_antenna, 1))  # beamforming init, f 改成0.001*
     c_zf_init = np.zeros((num_device,1))
-    v_bar_init = rng.random(10).T
-    for idx in range (5):
-        v_bar_init[idx+5] = (np.sqrt(1 - (v_bar_init[idx]) **2 ))
+    v_bar_init = rng.random(num_ris*2).T
+    for idx in range (num_ris):
+        v_bar_init[idx+num_ris] = (np.sqrt(1 - (v_bar_init[idx]) **2 ))
     
     for k in range(num_device):
-        channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ (v_bar_init[0:5,]).reshape(-1,1)
+        channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ (v_bar_init[0:num_ris,]).reshape(-1,1)
         c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
         c_zf_init[k] = 1e-4 * c_zf_k
     alpha_init = np.zeros(( int (num_class * (num_class-1) / 2), 2))
@@ -430,15 +415,9 @@ for i in range(len(num_device_list)):
         data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
 
     discriminant_gain_baseline_list[i] = disc_init
-    svm_accuracy_init_baseline_list[i] = model_inference(data_test_pca_add_noise_baseline, label_test, svm_model)
-    mlp_accuracy_init_baseline_list[i] = model_inference(data_test_pca_add_noise_baseline, label_test, mlp_model)
 
 
-np.save('./save_model/save_results/svm_accuracy_with_num_device_ris.npy', svm_accuracy_init_list)
-np.save('./save_model/save_results/mlp_accuracy_with_num_device_ris.npy', mlp_accuracy_init_list)
 np.save('./save_model/save_results/discriminant_gain_with_num_device_ris.npy', discriminant_gain_list)
 
 #baseline
-np.save('./save_model/save_results/svm_accuracy_with_num_device_baseline_ris.npy', svm_accuracy_init_baseline_list)
-np.save('./save_model/save_results/mlp_accuracy_with_num_device_baseline_ris.npy', mlp_accuracy_init_baseline_list)
 np.save('./save_model/save_results/discriminant_gain_with_num_device_baseline_ris.npy', discriminant_gain_baseline_list)

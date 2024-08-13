@@ -111,7 +111,7 @@ def evaluate(GNN, test_loader, num_device, power_bar):
     GNN.eval()
     discgain_list = []
     batch_size = test_loader.batch_size
-    with ((torch.no_grad())):
+    with torch.no_grad():
         for batch_combined_channel in test_loader:
             batch_combined_channel = batch_combined_channel.cuda()
             input = (batch_combined_channel[:, :, 0].view(batch_size, 1, num_device) +
