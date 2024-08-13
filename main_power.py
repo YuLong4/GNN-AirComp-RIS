@@ -103,8 +103,8 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar
     plt.show()
 
 
-alpha = [0.005, 0.004, 0.003, 0.002, 0.001]
-power_bar_list = [0, 5, 10, 20, 50]
+alpha = [0.005, 0.004, 0.003, 0.002, 0.001, 0.0009, 0.0008]
+power_bar_list = [0, 5, 10, 20, 50, 70, 90]
 
 
 def evaluate(GNN, test_loader, num_device, power_bar):
