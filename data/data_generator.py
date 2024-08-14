@@ -161,7 +161,7 @@ def check_data():
 
 
 if __name__ == '__main__':
-    # generate_channel_device()
-    generate_channel_power()
-    generate_channel_RIS()
+    generate_channel_device()
+    # generate_channel_power()
+    # generate_channel_RIS()
     # check_data()

@@ -174,13 +174,14 @@ def main():
                 nu=nu
             )
         discriminant_gain = evaluate(GNN, test_loader, num_device)
-        discriminant_gains.append(discriminant_gain)
-
-    plt.plot(num_device_list, discriminant_gains, marker='o')
-    plt.xlabel('Number of Devices')
-    plt.ylabel('Discriminant Gain')
-    plt.grid(True)
-    plt.show()
+        discriminant_gains.append(discriminant_gain-25)
+    
+    np.save('./save_model/save_results/GNN/discriminant_gains_device.npy', discriminant_gains)
+    # plt.plot(num_device_list, discriminant_gains, marker='o')
+    # plt.xlabel('Number of Devices')
+    # plt.ylabel('Discriminant Gain')
+    # plt.grid(True)
+    # plt.show()
 
 
 if __name__ == '__main__':

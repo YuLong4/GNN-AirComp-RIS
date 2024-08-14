@@ -142,8 +142,8 @@ def evaluate(GNN, test_loader, num_device, power_bar):
                         discgain[:, int(class_a * (class_a - 1) / 2) + class_b, idx_m] = \
                             ((mu_hat[:, class_a, idx_m] - mu_hat[:, class_b, idx_m]) ** 2 / sigma_hat[:, idx_m])
 
-            discriminant_gain = (2 / num_class * (num_class - 1) * torch.sum(discgain, dim=(1, 2))).mean() * (
-                        1 + alpha[power_bar_list.index(power_bar)] * power_bar)
+            discriminant_gain = (2 / num_class * (num_class - 1) * torch.sum(discgain, dim=(1, 2))).mean()
+                       # * (1 + alpha[power_bar_list.index(power_bar)] * power_bar)
             discgain_list.append(discriminant_gain.item())
 
     return np.mean(discgain_list)
@@ -183,11 +183,12 @@ def main():
         discriminant_gain = evaluate(GNN, test_loader, num_device, power_bar)
         discriminant_gains.append(discriminant_gain)
 
-    plt.plot(power_bar_list, discriminant_gains, marker='o')
-    plt.xlabel('Value of Power bar')
-    plt.ylabel('Discriminant Gain')
-    plt.grid(True)
-    plt.show()
+    np.save('./save_model/save_results/GNN/discriminant_gains_power.npy', discriminant_gains)
+    # plt.plot(power_bar_list, discriminant_gains, marker='o')
+    # plt.xlabel('Value of Power bar')
+    # plt.ylabel('Discriminant Gain')
+    # plt.grid(True)
+    # plt.show()
 
 
 if __name__ == '__main__':

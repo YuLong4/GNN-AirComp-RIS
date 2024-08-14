@@ -279,7 +279,7 @@ def model_inference(data, label, model):
 
 
 # #####the below is computating the accuracy with the change of number sizes.#####
-num_device_list = np.linspace(1,13,7)
+num_device_list = np.linspace(3,13,6)
 discriminant_gain_list = np.zeros((len(num_device_list), 1))
 discriminant_gain_baseline_list = np.zeros((len(num_device_list), 1))
 
