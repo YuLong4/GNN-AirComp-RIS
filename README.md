@@ -23,3 +23,4 @@ power_bar = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
 CVX_based_without_RIS: v值随机
 Random: c、v、f都随机
 ```
+图在drafts.ipynb中
