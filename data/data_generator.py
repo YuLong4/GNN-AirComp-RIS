@@ -16,7 +16,7 @@ location_irs = np.array([0, 0, 10])
 location_user = None
 
 num_antenna = 1
-num_RIS = 40
+num_RIS = 10
 num_device = 10
 
 config = get_config_obj()
@@ -161,7 +161,7 @@ def check_data():
 
 
 if __name__ == '__main__':
-    generate_channel_device()
-    # generate_channel_power()
+    # generate_channel_device()
+    generate_channel_power()
     # generate_channel_RIS()
     # check_data()

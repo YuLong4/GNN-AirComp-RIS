@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 num_antenna = 1
-num_RIS = 40
+num_RIS = 10
 num_device = 10
 
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
@@ -102,9 +102,6 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar
     plt.legend()
     plt.show()
 
-
-alpha = [0.005, 0.004, 0.003, 0.002, 0.001, 0.0009, 0.0008]
-power_bar_list = [0, 5, 10, 20, 50, 70, 90]
 
 
 def evaluate(GNN, test_loader, num_device, power_bar):

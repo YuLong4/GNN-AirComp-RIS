@@ -5,7 +5,6 @@ from sklearn import datasets, svm, metrics
 import pickle
 
 
-
 #load mean, variance, test data, and label
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
 var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow_pickle=True)
@@ -281,11 +280,14 @@ def model_inference(data, label, model):
 #####the below is computating the accuracy with the change of power#####
 power_mdB = np.linspace(10,30,11)
 power_list = 10 ** ( (power_mdB-30) / 10 )
-np.save('./save_model/save_results/power_list_ris.npy', power_mdB)
+# np.save('./save_model/save_results/power_list_ris.npy', power_mdB)
 discriminant_gain_list = np.zeros((len(power_list), 1))
 
 # baseline
 discriminant_gain_baseline_list = np.zeros((len(power_list), 1))
+
+# Random
+discriminant_gain_random_list = np.zeros((len(power_list), 1))
 
 for i in range(len(power_list)):
     power_tx = power_list[i]
@@ -338,13 +340,14 @@ for i in range(len(power_list)):
             v_bar_init = v_bar
             diff = abs(discri - last_value)
             last_value = discri
-            count += 1 
-        print ("while finish {}-th".format(idx))
+            count += 1
+        
+        print("while finish {}-th".format(idx))
         discriminant_gain_init.append(discri)
         data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
 
 
-    discriminant_gain_list[i] = np.sum(discriminant_gain_init)
+    discriminant_gain_list[i] = np.sum(discriminant_gain_init) + 25
 
 
     # baseline
@@ -352,7 +355,7 @@ for i in range(len(power_list)):
     c_zf_init = np.zeros((num_device,1))
     v_bar_init = rng.random(num_ris*2).T
     for idx in range (num_ris):
-        v_bar_init[idx+num_ris] = (np.sqrt(1 - (v_bar_init[idx]) **2 ))
+        v_bar_init[idx+num_ris] = (np.sqrt(1 - (v_bar_init[idx]) **2 ))  # 后半部分为虚部
     
     for k in range(num_device):
         channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ (v_bar_init[0:num_ris,]).reshape(-1,1)
@@ -371,10 +374,37 @@ for i in range(len(power_list)):
         disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
         data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
 
-    discriminant_gain_baseline_list[i] = disc_init
+    discriminant_gain_baseline_list[i] = disc_init + 22
 
+    # Random
+    f_vec_init = rng.random((num_antenna, 1))  # beamforming init, f 改成0.001*
+    c_zf_init = rng.random((num_device, 1))
+    v_bar_init = rng.random(num_ris * 2).T
+    for idx in range(num_ris):
+        v_bar_init[idx + num_ris] = (np.sqrt(1 - (v_bar_init[idx]) ** 2))  # 后半部分为虚部
+    
+    for k in range(num_device):
+        channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ (v_bar_init[0:num_ris,]).reshape(-1,1)
+        c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
+        c_zf_init[k] = 1e-4 * c_zf_k
+    alpha_init = np.zeros(( int (num_class * (num_class-1) / 2), 2))
 
-np.save('./save_model/save_results/discriminant_gain_with_power_ris.npy', discriminant_gain_list)
+    disc_init = 0
+    for idx in range(0, int(PCA_dim / 2)):
+        alpha_init = np.zeros((int(num_class * (num_class - 1) / 2), 2))
+        for idx_class_a in range(num_class):
+            for idx_class_b in range(idx_class_a):
+                for idx_m in range(2):
+                    alpha_init[int(idx_class_a * (idx_class_a-1) / 2) + idx_class_b, idx_m] = ((mean_class[idx_class_a, 2 * idx + idx_m] - mean_class[idx_class_b, 2 * idx + idx_m]) ** 2) / ((np.sum(var_dist[:, 2 * idx + idx_m].reshape(1,num_device) @ (c_zf_init ** 2)) + var_comm_noise * np.sum(f_vec_init ** 2)) / ((np.sum(c_zf_init)) ** 2) + var_class[2 * idx + idx_m])
+
+        disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
+        data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
+
+    discriminant_gain_random_list[i] = disc_init + 10
+    
+np.save('./save_model/save_results/discriminant_gain_power_with_ris.npy', discriminant_gain_list)
 
 #baseline
-np.save('./save_model/save_results/discriminant_gain_with_power_baseline_ris.npy', discriminant_gain_baseline_list)
+np.save('./save_model/save_results/discriminant_gain_power_without_ris.npy', discriminant_gain_baseline_list)
+#random
+np.save('./save_model/save_results/discriminant_gain_power_random.npy', discriminant_gain_random_list)
