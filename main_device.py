@@ -9,14 +9,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 num_antenna = 1
-num_RIS = 40
-num_device = 10
+num_RIS = 10
+num_device = 3
+power_bar = 12
 
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
 var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow_pickle=True)
 num_class = 4
 num_feature = 12
-var_shadow_fading = 1  # Variance of shadow fading, sigma_{0}^{2}
+var_comm_noise = 1  # Variance of shadow fading, sigma_{0}^{2}
 feature_noise_var = 0.4
 
 
@@ -62,7 +63,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu):
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
-                                   var_shadow_fading / 2 * (f1 ** 2 + f2 ** 2))
+                                   var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             regulazier = torch.zeros((batch_size, num_device)).cuda()
             for k in range(num_device):
@@ -126,7 +127,7 @@ def evaluate(GNN, test_loader, num_device):
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
-                                   var_shadow_fading / 2 * (f1 ** 2 + f2 ** 2))
+                                   var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2),
                                     num_feature)).cuda()
@@ -161,7 +162,7 @@ def main():
             print(f'Model for device {num_device} already exists. Skipping training.')
             GNN.load_state_dict(torch.load(model_path, weights_only=True))
         else:
-            p_bar = [dbm2pw(50) for _ in range(num_device)]
+            p_bar = [dbm2pw(power_bar) for _ in range(num_device)]
             nu = 1
             optimizer = optim.SGD(GNN.parameters(), lr=config['training']['learning_rate'])
             train(
