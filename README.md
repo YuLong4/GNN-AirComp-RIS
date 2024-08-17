@@ -1,3 +1,10 @@
+### 8/17
+#### update
+the path of device channel gain from cvx method is ./data/from_cvx/device/channels
+the path of power channel gain from cvx method is ./data/from_cvx/power/channels
+device的channel gain按设备数不同而不同，power的channel gain与power值无关
+从cvx里生成的channel gain形式为由channel_gain_hd, channel_gain_R, channel_gain_hr组成的npz file
+然后在GNN代码中生成channels部分进行替换
 ### 8/16
 #### update
 使用较小的power_bar: [0, 2, 4, 6, 8, 10, 12]</br>

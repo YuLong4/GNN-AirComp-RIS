@@ -17,7 +17,7 @@ location_user = None
 
 num_antenna = 1
 num_RIS = 10
-num_device = 10
+num_device = 3
 
 config = get_config_obj()
 
@@ -135,33 +135,86 @@ def generate_channel_RIS():
         np.save(train_dir + f'/train_combined_channel_RIS{num_RIS}.npy', train_data)
         np.save(test_dir + f'/test_combined_channel_RIS{num_RIS}.npy', test_data)
 
-def check_data():
-    train_data = np.load('./raw/device/train/train_combined_channel_device50.npy')
-    test_data = np.load('./raw/device/test/test_combined_channel_device50.npy')
-    
-    print(f'Train data shape: {train_data.shape}')
-    print(f'Test data shape: {test_data.shape}')
-    
-    print(f'Train data statistics: {np.mean(train_data)}, {np.std(train_data)}')
-    print(f'Test data statistics: {np.mean(test_data)}, {np.std(test_data)}')
-    
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.hist(train_data.flatten(), bins=50)
-    plt.title('Train Data Distribution')
-    plt.subplot(1, 2, 2)
-    plt.hist(test_data.flatten(), bins=50)
-    plt.title('Test Data Distribution')
-    plt.show()
-    
-    print(f'NaN in train data: {np.isnan(train_data).sum()}')
-    print(f'NaN in test data: {np.isnan(test_data).sum()}')
-    print(f'Inf in train data: {np.isinf(train_data).sum()}')
-    print(f'Inf in test data: {np.isinf(test_data).sum()}')
+
+def generate_channel_device_from_cvx():
+    num_device_list = config['params']['num_device']  # get from config file
+    for num_device in num_device_list:
+        params_system = (num_antenna, num_RIS, num_device)
+
+        # 生成信道数据
+        combined_channel, _ = channel_generation_from_cvx(
+            params_system,
+            num_frame * num_device,
+            noise_power_db,
+            location_user,
+            Rician_factor,
+            channels_path='./from_cvx/device/channels',
+            num_sample=10000,
+            pilot_power=pilot_power,
+            location_bs=location_bs,
+            location_irs=location_irs,
+            L_0=L_0,
+            alpha=alpha
+        )
+
+        print(f'num_device {num_device} from cvx generate finish')
+
+        # 划分数据集
+        train_data, test_data = train_test_split(
+            combined_channel.cpu(),
+            test_size=0.2,
+            random_state=1
+        )
+
+        train_dir = './from_cvx/device/train'
+        test_dir = './from_cvx/device/test'
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(test_dir, exist_ok=True)
+
+        np.save(train_dir + f'/train_combined_channel_device{num_device}.npy', train_data)
+        np.save(test_dir + f'/test_combined_channel_device{num_device}.npy', test_data)
+
+
+def generate_channel_power_from_cvx():
+    params_system = (num_antenna, num_RIS, num_device)
+
+    # 生成信道数据
+    combined_channel, _ = channel_generation_from_cvx(
+        params_system,
+        num_frame * num_device,
+        noise_power_db,
+        location_user,
+        Rician_factor,
+        channels_path='./from_cvx/power/channels',
+        num_sample=10000,
+        pilot_power=pilot_power,
+        location_bs=location_bs,
+        location_irs=location_irs,
+        L_0=L_0,
+        alpha=alpha
+    )
+
+    print(f'power_bar general from cvx generate finish')
+
+    # 划分数据集
+    train_data, test_data = train_test_split(
+        combined_channel.cpu(),
+        test_size=0.2,
+        random_state=1
+    )
+
+    train_dir = './from_cvx/power/train'
+    test_dir = './from_cvx/power/test'
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    np.save(train_dir + f'/train_combined_channel_power_general.npy', train_data)
+    np.save(test_dir + f'/test_combined_channel_power_general.npy', test_data)
 
 
 if __name__ == '__main__':
     # generate_channel_device()
-    generate_channel_power()
+    # generate_channel_power()
     # generate_channel_RIS()
-    # check_data()
+    generate_channel_power_from_cvx()
+    pass

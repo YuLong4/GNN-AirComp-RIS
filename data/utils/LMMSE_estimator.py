@@ -267,6 +267,32 @@ def channel_generation(params_system, len_pilot, noise_power_db, location_user, 
     combined_channel = torch.tensor(combined_channel, dtype=torch.complex128, device=0)
     return combined_channel, y_decode
 
+def channel_generation_from_cvx(params_system, len_pilot, noise_power_db, location_user, Rician_factor, num_sample,
+                                channels_path, pilot_power=15, location_bs=np.array([-80, 0, 30]),
+                                location_irs=np.array([10, 0, 10]), L_0=-30, alpha=[3.6, 2.5, 2.2]):
+    (num_antenna_bs, num_elements_irs, N_devices) = params_system
+    phase_shifts, pilots = generate_pilots_bl(len_pilot, num_elements_irs, N_devices)
+
+    if 'power' in channels_path:
+        channels_npz = np.load(channels_path + '/channels_general.npz')
+    elif 'device' in channels_path:
+        channels_npz = np.load(channels_path + f'/channels_device_{N_devices}.npz')
+    elif 'RIS' in channels_path:
+        channels_npz = np.load(channels_path + f'/channels_device_{num_elements_irs}.npz')
+    channels = (channels_npz['array1'], channels_npz['array2'], channels_npz['array3'])
+
+    (channel_bs_user, channel_irs_user, channel_bs_irs) = channels
+    channel_bs_user_, _, channel_bs_irs_user = channel_complex2real(channels)
+    y, y_real = generate_received_pilots_batch(channels, phase_shifts, pilots, noise_power_db, Pt=pilot_power)
+    y_decode = decorrelation(y, pilots)
+    channel_bs_user = channel_bs_user.reshape(num_sample, N_devices, num_antenna_bs)  # h_d,k
+    channel_bs_irs_user = channel_bs_irs_user.reshape(num_sample, N_devices, num_elements_irs)  # h_r,k
+    combined_channel = np.concatenate((channel_bs_user, channel_bs_irs_user), axis=2)
+    y_decode = torch.tensor(y_decode, dtype=torch.complex128, device=0).reshape(num_sample, len_pilot)
+    combined_channel = torch.tensor(combined_channel, dtype=torch.complex128, device=0)
+    return combined_channel, y_decode
+
+
 
 def channel_generation_response(params_system, len_pilot, noise_power_db, location_user, Rician_factor, num_sample,
                                 pilot_power=15, location_bs=np.array([-80, 0, 30]), location_irs=np.array([10, 0, 10]),

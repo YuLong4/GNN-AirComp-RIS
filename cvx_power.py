@@ -2,6 +2,7 @@ import cvxpy as cp
 import numpy as np
 from numpy.random import default_rng
 from sklearn import metrics
+from sqlalchemy.dialects.postgresql import array
 
 from utils.utils import get_config_obj
 
@@ -411,6 +412,7 @@ def main():
 
 
 def generate_channel_gain(num_sample):
+    channels = []
     channel_gain_hd_sample = []
     channel_gain_hr_sample = []
     channel_gain_R_sample = []
@@ -447,10 +449,11 @@ def generate_channel_gain(num_sample):
         channel_gain_hr_sample.append(channel_gain_hr)
         channel_gain_R_sample.append(channel_gain_R)
 
-    return np.array(channel_gain_hd_sample), np.array(channel_gain_hr_sample), np.array(channel_gain_R_sample)
+    np.savez('./data/from_cvx/power/channels/channels_general.npz',
+             array1=channel_gain_hd_sample, array2=channel_gain_hr_sample, array3=channel_gain_R_sample)
 
 
 if __name__ == '__main__':
     # main()
-    channel_gain_hd_sample, channel_gain_hr_sample, channel_gain_R_sample = generate_channel_gain(num_sample=10000)
+    # generate_channel_gain(num_sample=10000)
     pass
