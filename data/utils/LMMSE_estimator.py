@@ -274,11 +274,10 @@ def channel_generation_from_cvx(params_system, len_pilot, noise_power_db, locati
     phase_shifts, pilots = generate_pilots_bl(len_pilot, num_elements_irs, N_devices)
 
     if 'power' in channels_path:
-        channels_npz = np.load(channels_path + '/channels_general.npz')
+        channels_npz = np.load(channels_path + '/channels_power_general.npz')
     elif 'device' in channels_path:
         channels_npz = np.load(channels_path + f'/channels_device_{N_devices}.npz')
-    elif 'RIS' in channels_path:
-        channels_npz = np.load(channels_path + f'/channels_device_{num_elements_irs}.npz')
+    
     channels = (channels_npz['array1'], channels_npz['array2'], channels_npz['array3'])
 
     (channel_bs_user, channel_irs_user, channel_bs_irs) = channels

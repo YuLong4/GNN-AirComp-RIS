@@ -8,6 +8,17 @@ data:
   RIS:
     train_dir: ./data/raw/RIS/train
     test_dir: ./data/raw/RIS/test
+    
+data_from_cvx:
+  device:
+    train_dir: ./data/from_cvx/device/train
+    test_dir: ./data/from_cvx/device/test
+  power:
+    train_dir: ./data/from_cvx/power/train
+    test_dir: ./data/from_cvx/power/test
+  RIS:
+    train_dir: ./data/from_cvx/RIS/train
+    test_dir: ./data/from_cvx/RIS/test
 
 training:
   batch_size: 500

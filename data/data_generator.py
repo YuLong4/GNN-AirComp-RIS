@@ -216,5 +216,6 @@ if __name__ == '__main__':
     # generate_channel_device()
     # generate_channel_power()
     # generate_channel_RIS()
-    generate_channel_power_from_cvx()
+    generate_channel_device_from_cvx()
+    # generate_channel_power_from_cvx()
     pass

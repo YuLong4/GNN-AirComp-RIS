@@ -2,6 +2,7 @@ import numpy as np
 from numpy.random import default_rng
 import cvxpy as cp
 from sklearn import datasets, svm, metrics
+import torch
 import pickle
 from utils.utils import get_config_obj
 
@@ -263,7 +264,7 @@ def SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_
     return c_zf,f_vec_init,alpha_init,last_value
 
 
-def add_noise_to_normed_pca(data_test_pca_normed, c_zf_init, f_vec_init, var_dist):
+def add_noise_to_normed_pca(data_test_pca_normed, c_zf_init, f_vec_init):
     var_dist = rng.uniform(0, var_dist_scale, (num_device, 2))
     data_test_pca_add_noise = (np.sum(c_zf_init) * data_test_pca_normed + c_zf_init.T @ var_dist + np.sum(f_vec_init * var_comm_noise)) / np.sum(c_zf_init)
     return data_test_pca_add_noise
@@ -274,6 +275,39 @@ def model_inference(data, label, model):
     accuracy = metrics.accuracy_score(label, predicted)
     return accuracy
 
+
+def compute_discriminant_gain(c, f):
+    batch_size = config['training']['batch_size']
+    c = np.squeeze(c, axis=-1)
+    f = np.squeeze(f, axis=-1)
+    c = np.tile(c, (batch_size, 1))
+    f = np.tile(f, (batch_size,))
+    c = torch.from_numpy(c).cuda()
+    f = torch.from_numpy(f).cuda()
+    c_sum = torch.sum(c, dim=1).unsqueeze(1).cuda()
+    mean_class_1_8 = torch.tensor(mean_class).cuda().reshape((1, num_class * PCA_dim))
+    mu_hat = (c_sum @ mean_class_1_8).reshape((batch_size, num_class, PCA_dim))
+
+    sigma_hat = torch.zeros(batch_size, PCA_dim).cuda()
+    temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
+
+    for i in range(temp.shape[1]):
+        sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist_scale for k in range(num_device)]) +
+                           var_comm_noise / 2 * (f ** 2))
+
+    discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2),
+                            PCA_dim)).cuda()
+
+    for class_a in range(num_class):
+        for class_b in range(class_a):
+            for idx_m in range(PCA_dim):
+                discgain[:, int(class_a * (class_a - 1) / 2) + class_b, idx_m] = \
+                    ((mu_hat[:, class_a, idx_m] - mu_hat[:, class_b, idx_m]) ** 2 / sigma_hat[:, idx_m])
+
+    discriminant_gain = (2 / num_class * (num_class - 1) * torch.sum(discgain, dim=(1, 2))).mean()
+    return discriminant_gain
+
+
 config = get_config_obj()
 
 num_device_list = np.array(config['params']['num_device'])
@@ -281,6 +315,7 @@ num_device_list = np.array(config['params']['num_device'])
 # #####the below is computating the accuracy with the change of number sizes.#####
 discriminant_gain_list = np.zeros((len(num_device_list), 1))
 discriminant_gain_baseline_list = np.zeros((len(num_device_list), 1))
+discriminant_gain_random_list = np.zeros((len(num_device_list), 1))
 
 for i in range(len(num_device_list)):
     num_device = int(num_device_list[i])
@@ -368,9 +403,8 @@ for i in range(len(num_device_list)):
         count = 1
         disc_init = 2 * alpha_init.sum() / num_class / (num_class-1)
         last_value = disc_init
-        diff = 1 #########
+        diff = 1
         discri = 0
-
 
         while (diff > 1e-2 and count <100):
             c_zf, v_bar, discri, alpha_init = SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power_tx,channel_gain_hd,channel_gain_hr,channel_gain_R,num_class,num_ris,num_device, idx, var_dist)
@@ -381,9 +415,10 @@ for i in range(len(num_device_list)):
             count += 1
         print ("while finish {}-th".format(idx))
         discriminant_gain_init.append(discri)
-        data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init, var_dist)
+        data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
 
-    discriminant_gain_list[i] = np.sum(discriminant_gain_init)
+    discriminant_gain_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
+    # discriminant_gain_list[i] = np.sum(discriminant_gain_init)
 
     # baseline
     f_vec_init = np.ones((num_antenna, 1))  # beamforming init, f 改成0.001*
@@ -407,15 +442,42 @@ for i in range(len(num_device_list)):
                     alpha_init[int(idx_class_a * (idx_class_a-1) / 2) + idx_class_b, idx_m] = ((mean_class[idx_class_a, 2 * idx + idx_m] - mean_class[idx_class_b, 2 * idx + idx_m]) ** 2) / ((np.sum(var_dist[:, 2 * idx + idx_m].reshape(1,num_device) @ (c_zf_init ** 2)) + var_comm_noise * np.sum(f_vec_init ** 2)) / ((np.sum(c_zf_init)) ** 2) + var_class[2 * idx + idx_m])
 
         disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
-        data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init, var_dist)
+        data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
 
-    discriminant_gain_baseline_list[i] = disc_init
+    discriminant_gain_baseline_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
+    
+    # Random
+    f_vec_init = rng.random((num_antenna, 1))  # beamforming init, f 改成0.001*
+    c_zf_init = rng.random((num_device, 1))
+    v_bar_init = rng.random(num_ris * 2).T
+    for idx in range(num_ris):
+        v_bar_init[idx + num_ris] = (np.sqrt(1 - (v_bar_init[idx]) ** 2))  # 后半部分为虚部
 
-# np.save('./save_model/save_results/discriminant_gain_with_num_device_ris.npy', discriminant_gain_list)
-#
-# #baseline
-# np.save('./save_model/save_results/discriminant_gain_with_num_device_baseline_ris.npy', discriminant_gain_baseline_list)
+    for k in range(num_device):
+        channel_gain_init = channel_gain_hd[:,k].reshape(-1,1) + channel_gain_R @ np.diag(channel_gain_hr[:,k]) @ (v_bar_init[0:num_ris,]).reshape(-1,1)
+        c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
+        c_zf_init[k] = 1e-4 * c_zf_k
+    alpha_init = np.zeros(( int (num_class * (num_class-1) / 2), 2))
 
+    disc_init = 0
+    for idx in range(0, int(PCA_dim / 2)):
+        alpha_init = np.zeros((int(num_class * (num_class - 1) / 2), 2))
+        for idx_class_a in range(num_class):
+            for idx_class_b in range(idx_class_a):
+                for idx_m in range(2):
+                    alpha_init[int(idx_class_a * (idx_class_a-1) / 2) + idx_class_b, idx_m] = ((mean_class[idx_class_a, 2 * idx + idx_m] - mean_class[idx_class_b, 2 * idx + idx_m]) ** 2) / ((np.sum(var_dist[:, 2 * idx + idx_m].reshape(1,num_device) @ (c_zf_init ** 2)) + var_comm_noise * np.sum(f_vec_init ** 2)) / ((np.sum(c_zf_init)) ** 2) + var_class[2 * idx + idx_m])
+
+        disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
+        data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
+
+    discriminant_gain_random_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
+
+np.save('./save_model/save_results/discriminant_gain_device_with_ris.npy', discriminant_gain_list)
+
+#baseline
+np.save('./save_model/save_results/discriminant_gain_device_without_ris.npy', discriminant_gain_baseline_list)
+
+np.save('./save_model/save_results/discriminant_gain_device_random.npy', discriminant_gain_random_list)
 
 def generate_channel_gain(num_sample):
     for num_device in num_device_list:

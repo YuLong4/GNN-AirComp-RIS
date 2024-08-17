@@ -1,6 +1,5 @@
 import cvxpy as cp
 import numpy as np
-from click.core import batch
 from numpy.random import default_rng
 from sklearn import metrics
 import torch
@@ -278,6 +277,12 @@ def model_inference(data, label, model):
 
 def compute_discriminant_gain(c, f):
     batch_size = config['training']['batch_size']
+    c = np.squeeze(c, axis=-1)
+    f = np.squeeze(f, axis=-1)
+    c = np.tile(c, (batch_size, 1))
+    f = np.tile(f, (batch_size,))
+    c = torch.from_numpy(c).cuda()
+    f = torch.from_numpy(f).cuda()
     c_sum = torch.sum(c, dim=1).unsqueeze(1).cuda()
     mean_class_1_8 = torch.tensor(mean_class).cuda().reshape((1, num_class * PCA_dim))
     mu_hat = (c_sum @ mean_class_1_8).reshape((batch_size, num_class, PCA_dim))
@@ -302,7 +307,6 @@ def compute_discriminant_gain(c, f):
     return discriminant_gain
 
 config = get_config_obj()
-
 
 #####the below is computating the accuracy with the change of power#####
 power_mdB = np.array(config['params']['power_bar'])
@@ -372,7 +376,7 @@ for i in range(len(power_list)):
         discriminant_gain_init.append(discri)
         data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
 
-    discriminant_gain_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init)
+    discriminant_gain_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
     # discriminant_gain_list[i] = np.sum(discriminant_gain_init)
 
     # baseline
@@ -399,7 +403,7 @@ for i in range(len(power_list)):
         disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
         data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
 
-    discriminant_gain_baseline_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init)
+    discriminant_gain_baseline_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
 
     # Random
     f_vec_init = rng.random((num_antenna, 1))  # beamforming init, f 改成0.001*
@@ -425,12 +429,13 @@ for i in range(len(power_list)):
         disc_init += 2 * alpha_init.sum() / num_class / (num_class-1)
         data_test_pca_add_noise_baseline[:, idx * 2:idx * 2 + 2] = add_noise_to_normed_pca(data_test_pca_normed[:, idx * 2:idx * 2 + 2], c_zf_init, f_vec_init)
 
-    discriminant_gain_random_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init)
+    discriminant_gain_random_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
 
 np.save('./save_model/save_results/discriminant_gain_power_with_ris.npy', discriminant_gain_list)
 
 #baseline
 np.save('./save_model/save_results/discriminant_gain_power_without_ris.npy', discriminant_gain_baseline_list)
+
 #random
 np.save('./save_model/save_results/discriminant_gain_power_random.npy', discriminant_gain_random_list)
 
@@ -471,10 +476,8 @@ def generate_channel_gain(num_sample):
         channel_gain_hd_sample.append(channel_gain_hd)
         channel_gain_hr_sample.append(channel_gain_hr)
         channel_gain_R_sample.append(channel_gain_R)
-    np.savez('./data/from_cvx/power/channels/channels_general.npz',
+    np.savez('./data/from_cvx/power/channels/channels_power_general.npz',
              array1=channel_gain_hd_sample, array2=channel_gain_hr_sample, array3=channel_gain_R_sample)
-
-
 
 
 

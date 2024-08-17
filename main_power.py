@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 num_antenna = 1
 num_RIS = 10
-num_device = 10
+num_device = 3
 
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
 var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow_pickle=True)
@@ -103,7 +103,6 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar
     plt.show()
 
 
-
 def evaluate(GNN, test_loader, num_device, power_bar):
     GNN.eval()
     discgain_list = []
@@ -140,7 +139,6 @@ def evaluate(GNN, test_loader, num_device, power_bar):
                             ((mu_hat[:, class_a, idx_m] - mu_hat[:, class_b, idx_m]) ** 2 / sigma_hat[:, idx_m])
 
             discriminant_gain = (2 / num_class * (num_class - 1) * torch.sum(discgain, dim=(1, 2))).mean()
-                       # * (1 + alpha[power_bar_list.index(power_bar)] * power_bar)
             discgain_list.append(discriminant_gain.item())
 
     return np.mean(discgain_list)
@@ -151,9 +149,11 @@ def main():
     power_bar_list = config['params']['power_bar']
     discriminant_gains = []
 
-    train_dataset = CustomDataset(config['data']['power']['train_dir'] + f'/train_combined_channel_power_general.npy')
+    train_dataset = CustomDataset(config['data_from_cvx']['power']['train_dir'] + f'/train_combined_channel_power_general.npy')
+    # train_dataset = CustomDataset(config['data']['power']['train_dir'] + f'/train_combined_channel_power_general.npy')
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
-    test_dataset = CustomDataset(config['data']['power']['test_dir'] + f'/test_combined_channel_power_general.npy')
+    test_dataset = CustomDataset(config['data_from_cvx']['power']['test_dir'] + f'/test_combined_channel_power_general.npy')
+    # test_dataset = CustomDataset(config['data']['power']['test_dir'] + f'/test_combined_channel_power_general.npy')
     test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
 
     for power_bar in power_bar_list:
