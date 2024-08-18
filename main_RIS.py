@@ -9,14 +9,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 num_antenna = 1
-num_RIS = 40
-num_device = 10
+num_RIS = 10
+num_device = 3
+power_bar = 12
 
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
 var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow_pickle=True)
 num_class = 4
 num_feature = 12
-var_shadow_fading = 1  # Variance of shadow fading, sigma_{0}^{2}
+var_comm_noise = 1  # Variance of shadow fading, sigma_{0}^{2}
 feature_noise_var = 0.4
 
 
@@ -62,7 +63,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, num_RIS):
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
-                                   var_shadow_fading / 2 * (f1 ** 2 + f2 ** 2))
+                                   var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             regulazier = torch.zeros((batch_size, num_device)).cuda()
             for k in range(num_device):
@@ -126,7 +127,7 @@ def evaluate(GNN, test_loader, num_device):
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
-                                   var_shadow_fading / 2 * (f1 ** 2 + f2 ** 2))
+                                   var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2),
                                     num_feature)).cuda()
@@ -149,11 +150,12 @@ def main():
     discriminant_gains = []
 
     for num_RIS in num_RIS_list:
-        train_dataset = CustomDataset(config['data']['RIS']['train_dir'] + f'/train_combined_channel_RIS{num_RIS}.npy')
+        train_dataset = CustomDataset(config['data_from_cvx']['RIS']['train_dir'] + f'/train_combined_channel_ris{num_RIS}.npy')
         train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
-        test_dataset = CustomDataset(config['data']['RIS']['test_dir'] + f'/test_combined_channel_RIS{num_RIS}.npy')
+        test_dataset = CustomDataset(config['data_from_cvx']['RIS']['test_dir'] + f'/test_combined_channel_ris{num_RIS}.npy')
         test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
         model_path = f'./save_model/models/GNN_model_RIS_{num_RIS}.pth'
+
 
         GNN = Graph_net(2, num_device, num_RIS)
         
@@ -161,7 +163,7 @@ def main():
             print(f'Model for RIS {num_RIS} already exists. Skipping training.')
             GNN.load_state_dict(torch.load(model_path, weights_only=True))
         else:
-            p_bar = [dbm2pw(50) for _ in range(num_device)]
+            p_bar = [dbm2pw(12) for _ in range(num_device)]
             nu = 1
             optimizer = optim.SGD(GNN.parameters(), lr=config['training']['learning_rate'])
             train(
@@ -177,11 +179,12 @@ def main():
         discriminant_gain = evaluate(GNN, test_loader, num_device)
         discriminant_gains.append(discriminant_gain)
 
-    plt.plot(num_RIS_list, discriminant_gains, marker='o')
-    plt.xlabel('Number of RIS')
-    plt.ylabel('Discriminant Gain')
-    plt.grid(True)
-    plt.show()
+    np.save('./save_model/save_results/GNN/discriminant_gains_ris.npy', discriminant_gains)
+    # plt.plot(num_RIS_list, discriminant_gains, marker='o')
+    # plt.xlabel('Number of RIS element')
+    # plt.ylabel('Discriminant Gain')
+    # plt.grid(True)
+    # plt.show()
 
 
 if __name__ == '__main__':

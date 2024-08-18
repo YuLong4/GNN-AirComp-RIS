@@ -150,9 +150,9 @@ def main():
     discriminant_gains = []
 
     for num_device in num_device_list:
-        train_dataset = CustomDataset(config['data']['device']['train_dir'] + f'/train_combined_channel_device{num_device}.npy')
+        train_dataset = CustomDataset(config['data_from_cvx']['device']['train_dir'] + f'/train_combined_channel_device{num_device}.npy')
         train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
-        test_dataset = CustomDataset(config['data']['device']['test_dir'] + f'/test_combined_channel_device{num_device}.npy')
+        test_dataset = CustomDataset(config['data_from_cvx']['device']['test_dir'] + f'/test_combined_channel_device{num_device}.npy')
         test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
         model_path = f'./save_model/models/GNN_model_device_{num_device}.pth'
 
@@ -175,7 +175,7 @@ def main():
                 nu=nu
             )
         discriminant_gain = evaluate(GNN, test_loader, num_device)
-        discriminant_gains.append(discriminant_gain-25)
+        discriminant_gains.append(discriminant_gain)
     
     np.save('./save_model/save_results/GNN/discriminant_gains_device.npy', discriminant_gains)
     # plt.plot(num_device_list, discriminant_gains, marker='o')

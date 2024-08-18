@@ -212,10 +212,50 @@ def generate_channel_power_from_cvx():
     np.save(test_dir + f'/test_combined_channel_power_general.npy', test_data)
 
 
+def generate_channel_ris_from_cvx():
+    num_ris_list = config['params']['num_RIS']  # get from config file
+    for num_RIS in num_ris_list:
+        params_system = (num_antenna, num_RIS, num_device)
+
+        # 生成信道数据
+        combined_channel, _ = channel_generation_from_cvx(
+            params_system,
+            num_frame * num_device,
+            noise_power_db,
+            location_user,
+            Rician_factor,
+            channels_path='./from_cvx/ris/channels',
+            num_sample=10000,
+            pilot_power=pilot_power,
+            location_bs=location_bs,
+            location_irs=location_irs,
+            L_0=L_0,
+            alpha=alpha
+        )
+
+        print(f'num_ris {num_RIS} from cvx generate finish')
+
+        # 划分数据集
+        train_data, test_data = train_test_split(
+            combined_channel.cpu(),
+            test_size=0.2,
+            random_state=1
+        )
+
+        train_dir = './from_cvx/ris/train'
+        test_dir = './from_cvx/ris/test'
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(test_dir, exist_ok=True)
+
+        np.save(train_dir + f'/train_combined_channel_ris{num_RIS}.npy', train_data)
+        np.save(test_dir + f'/test_combined_channel_ris{num_RIS}.npy', test_data)
+
+
 if __name__ == '__main__':
     # generate_channel_device()
     # generate_channel_power()
     # generate_channel_RIS()
-    generate_channel_device_from_cvx()
+    # generate_channel_device_from_cvx()
     # generate_channel_power_from_cvx()
+    generate_channel_ris_from_cvx()
     pass

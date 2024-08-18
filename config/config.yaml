@@ -17,8 +17,8 @@ data_from_cvx:
     train_dir: ./data/from_cvx/power/train
     test_dir: ./data/from_cvx/power/test
   RIS:
-    train_dir: ./data/from_cvx/RIS/train
-    test_dir: ./data/from_cvx/RIS/test
+    train_dir: ./data/from_cvx/ris/train
+    test_dir: ./data/from_cvx/ris/test
 
 training:
   batch_size: 500
@@ -27,6 +27,6 @@ training:
   
 params:
   num_device: [3, 5, 7, 9, 11, 13]
-  num_RIS: [5, 10, 15, 20, 30, 40, 50]
-  power_bar: [0, 2, 4, 6, 8, 10, 12]
+  num_RIS: [10, 20, 30, 40, 50, 60]
+  power_bar: [4, 5, 6, 7, 8, 9, 10, 11, 12]
   

@@ -24,7 +24,7 @@ var_comm_noise = 1  # communication noise, sigma_{0}^{2}
 rng = default_rng()
 var_dist = rng.uniform(0, var_dist_scale, (num_device, PCA_dim))  # variance of distortion, delta_{k,m}
 power_mdB = 12
-power_tx = 10 ** ( (power_mdB-30) / 10 )  # transmit power, P_{k}
+power_tx = 10 ** ((power_mdB-30) / 10)  # transmit power, P_{k}
 #power_tx = 0.1  # transmit power, P_{k}
 bandwidth = 1.5 * 10**6
 radius = 500  # BS in the center of circle of radius = 500 m
@@ -260,7 +260,6 @@ def SCA_c_Rf(alpha_init,c_zf,v_bar,f_vec_init,num_antenna,power_tx,channel_gain_
         print("The discriminant_2 gain after {}-th interation is: {}, diff:{}".format(count, last_value,diff))
         count += 1
 
-
     return c_zf,f_vec_init,alpha_init,last_value
 
 
@@ -310,38 +309,21 @@ def compute_discriminant_gain(c, f):
 
 config = get_config_obj()
 
-num_device_list = np.array(config['params']['num_device'])
+num_ris_list = np.array(config['params']['num_RIS'])
 
 # #####the below is computating the accuracy with the change of number sizes.#####
-discriminant_gain_list = np.zeros((len(num_device_list), 1))
-discriminant_gain_baseline_list = np.zeros((len(num_device_list), 1))
-discriminant_gain_random_list = np.zeros((len(num_device_list), 1))
+discriminant_gain_list = np.zeros((len(num_ris_list), 1))
+discriminant_gain_baseline_list = np.zeros((len(num_ris_list), 1))
+discriminant_gain_random_list = np.zeros((len(num_ris_list), 1))
 
-for i in range(len(num_device_list)):
-    num_device = int(num_device_list[i])
+for i in range(len(num_ris_list)):
+    num_ris = int(num_ris_list[i])
     var_dist = rng.uniform(0, var_dist_scale, (num_device, PCA_dim))  # variance of distortion, delta_{k,m}
 
     user_dist = (radius - radius_inner) * rng.random((1, num_device)) + radius_inner
     user_pl_db = 128.1 + 37.6 * np.log10(user_dist / 1e3)  # path loss in dB
     user_pl_db = user_pl_db - chl_shadow_std_db
     user_pl = 10 ** (-user_pl_db / 10)
-
-    # hd
-    # rayli_fading_real = rng.normal(0, 1, (num_device, num_antenna))  # rayleigh fading ~ CN(0,1)
-    # rayli_fading_img = rng.normal(0, 1, (num_device, num_antenna))
-    rayli_fading_real_hd = rng.normal(0, 1, (num_antenna,1))  # rayleigh fading ~ CN(0,1)
-    rng3 = default_rng()
-    rayli_fading_img_hd = rng3.normal(0, 1, (num_antenna,1))
-    for j in range(1,num_device):
-        rng2 = default_rng()
-        rng3 = default_rng()
-        rayli_fading_real_hd = np.hstack((rayli_fading_real_hd,rng2.normal(0, 1, (num_antenna, 1))))   # rayleigh fading ~ CN(0,1)
-        rayli_fading_img_hd = np.hstack((rayli_fading_img_hd,rng3.normal(0, 1, (num_antenna, 1))))
-
-    rayli_fading_gain_hd = rayli_fading_real_hd ** 2 + rayli_fading_img_hd ** 2
-    noise_power = 10 ** (-17.4) * bandwidth  # from You's paper
-    # channel_gain = user_pl * np.ones((1, num_antenna)) * np.sqrt(rayli_fading_gain) / noise_power
-    channel_gain_hd = user_pl * np.ones((num_antenna,1)) * np.sqrt(rayli_fading_gain_hd) / noise_power
 
     # hr
     ris_dist = (radius - radius_inner) * rng.random(1) + radius_inner
@@ -360,6 +342,15 @@ for i in range(len(num_device_list)):
     noise_power = 10 ** (-17.4) * bandwidth  # from You's paper
     # channel_gain = user_pl * np.ones((1, num_antenna)) * np.sqrt(rayli_fading_gain) / noise_power
     channel_gain_hr = ris_pl * np.ones((num_ris,1)) * np.sqrt(rayli_fading_gain_hr) / noise_power
+
+    ris_dist2 = (radius - radius_inner) * rng.random(1) + radius_inner
+    ris_ap_db = 128.1 + 37.6 * np.log10(ris_dist2 / 1e3)  # path loss in dB
+    ris_ap_db = ris_ap_db - chl_shadow_std_db
+    ris_ap = 10 ** (-ris_ap_db / 10)
+    rayli_fading_real_R = rng.normal(0, 1, (num_antenna, num_ris))  # rayleigh fading ~ CN(0,1)
+    rayli_fading_img_R = rng.normal(0, 1, (num_antenna, num_ris))
+    rayli_fading_gain_R = rayli_fading_real_R ** 2 + rayli_fading_img_R ** 2
+    channel_gain_R = ris_ap * np.ones((num_antenna, num_ris)) * np.sqrt(rayli_fading_gain_R) / noise_power
 
     power_mdB = 12
     power_tx = 10 ** ((power_mdB - 30) / 10)
@@ -471,19 +462,19 @@ for i in range(len(num_device_list)):
 
     discriminant_gain_random_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
 
-np.save('./save_model/save_results/discriminant_gain_device_with_ris.npy', discriminant_gain_list)
+np.save('./save_model/save_results/discriminant_gain_ris_with_ris.npy', discriminant_gain_list)
 
 #baseline
-np.save('./save_model/save_results/discriminant_gain_device_without_ris.npy', discriminant_gain_baseline_list)
+np.save('./save_model/save_results/discriminant_gain_ris_without_ris.npy', discriminant_gain_baseline_list)
 
-np.save('./save_model/save_results/discriminant_gain_device_random.npy', discriminant_gain_random_list)
+np.save('./save_model/save_results/discriminant_gain_ris_random.npy', discriminant_gain_random_list)
 
 def generate_channel_gain(num_sample):
-    for num_device in num_device_list:
+    for num_ris in num_ris_list:
         channel_gain_hd_sample = []
         channel_gain_hr_sample = []
         channel_gain_R_sample = []
-        print(f'generating channels of device {num_device}')
+        print(f'generating channels of ris {num_ris}')
         for count in range(num_sample):
             var_dist = rng.uniform(0, var_dist_scale, (num_device, PCA_dim))  # variance of distortion, delta_{k,m}
             user_dist = (radius - radius_inner) * rng.random((1, num_device)) + radius_inner
@@ -539,10 +530,10 @@ def generate_channel_gain(num_sample):
             channel_gain_hd_sample.append(channel_gain_hd)
             channel_gain_hr_sample.append(channel_gain_hr)
             channel_gain_R_sample.append(channel_gain_R)
-        np.savez(f'./data/from_cvx/device/channels/channels_device_{num_device}.npz',
+        np.savez(f'./data/from_cvx/ris/channels/channels_ris_{num_ris}.npz',
                 array1=channel_gain_hd_sample, array2=channel_gain_hr_sample, array3=channel_gain_R_sample)
 
 
 if __name__ == '__main__':
-    # generate_channel_gain(num_sample=10000)
+    generate_channel_gain(num_sample=10000)
     pass

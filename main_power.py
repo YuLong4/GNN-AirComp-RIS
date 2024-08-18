@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 num_antenna = 1
 num_RIS = 10
 num_device = 3
+power_bar = 12
 
 mean_class = np.load('./save_model/save_mean_variance/mean_class_12dim.npy', allow_pickle=True)
 var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow_pickle=True)
