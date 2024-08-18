@@ -535,5 +535,5 @@ def generate_channel_gain(num_sample):
 
 
 if __name__ == '__main__':
-    generate_channel_gain(num_sample=10000)
+    # generate_channel_gain(num_sample=10000)
     pass
