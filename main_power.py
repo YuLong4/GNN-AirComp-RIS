@@ -20,7 +20,7 @@ var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow
 num_class = 4
 num_feature = 12
 var_comm_noise = 1  # Variance of shadow fading, sigma_{0}^{2}
-var_dist = 0.4
+var_dist = 0.3
 
 
 def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar):
@@ -61,7 +61,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar
 
             # sigma_hat (64, num_feature)
             sigma_hat = torch.zeros(batch_size, num_feature).cuda()
-            temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0)
+            temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist for k in range(num_device)]) +
@@ -95,7 +95,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, power_bar
 
         print(f'Epoch [{epoch + 1}/{epochs}], Loss: {avg_loss:.4f}')
 
-    torch.save(GNN.state_dict(), f'./save_model/test_models/GNN_model_power_{power_bar}.pth')
+    torch.save(GNN.state_dict(), f'./save_model/models/GNN_model_power_{power_bar}.pth')
 
     plt.plot(loss_history, label='Training Loss')
     plt.xlabel('iters')
@@ -125,7 +125,7 @@ def evaluate(GNN, test_loader, num_device, power_bar):
             mu_hat = (c_sum @ mean_class_1_8).reshape((batch_size, num_class, num_feature))
 
             sigma_hat = torch.zeros(batch_size, num_feature).cuda()
-            temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0)
+            temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
 
             for i in range(temp.shape[1]):
                 sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist for k in range(num_device)]) +
@@ -159,7 +159,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
 
     for power_bar in power_bar_list:
-        model_path = f'./save_model/test_models/GNN_model_power_{power_bar}.pth'
+        model_path = f'./save_model/models/GNN_model_power_{power_bar}.pth'
         GNN = Graph_net(2, num_device, num_RIS)
 
         if os.path.isfile(model_path):
@@ -182,7 +182,7 @@ def main():
         discriminant_gain = evaluate(GNN, test_loader, num_device, power_bar)
         discriminant_gains.append(discriminant_gain)
 
-    np.save('./save_model/save_results/test_GNN/discriminant_gains_power.npy', discriminant_gains)
+    np.save('./save_model/save_results/GNN/discriminant_gains_power.npy', discriminant_gains)
     # plt.plot(power_bar_list, discriminant_gains, marker='o')
     # plt.xlabel('Value of Power bar')
     # plt.ylabel('Discriminant Gain')

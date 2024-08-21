@@ -18,7 +18,7 @@ var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow
 num_class = 4
 num_feature = 12
 var_comm_noise = 1  # Variance of shadow fading, sigma_{0}^{2}
-feature_noise_var = 0.4
+feature_noise_var = 0.39
 
 
 def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu, num_RIS):

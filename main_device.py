@@ -18,7 +18,7 @@ var_class = np.load('./save_model/save_mean_variance/var_class_12dim.npy', allow
 num_class = 4
 num_feature = 12
 var_comm_noise = 1  # Variance of shadow fading, sigma_{0}^{2}
-feature_noise_var = 0.4
+var_dist = 0.3
 
 
 def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu):
@@ -62,7 +62,7 @@ def train(GNN, train_loader, optimizer, epochs, num_device, p_bar, nu):
             temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
 
             for i in range(temp.shape[1]):
-                sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
+                sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist for k in range(num_device)]) +
                                    var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             regulazier = torch.zeros((batch_size, num_device)).cuda()
@@ -126,7 +126,7 @@ def evaluate(GNN, test_loader, num_device):
             temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
 
             for i in range(temp.shape[1]):
-                sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * feature_noise_var for k in range(num_device)]) +
+                sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist for k in range(num_device)]) +
                                    var_comm_noise / 2 * (f1 ** 2 + f2 ** 2))
 
             discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2),
