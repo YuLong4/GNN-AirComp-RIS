@@ -100,7 +100,10 @@ def SCA_for_two_PCA(alpha_init,c_zf_init,f_vec_init,v_bar_init,num_antenna,power
     for idx_class_a in range(num_class):
         for idx_class_b in range(idx_class_a):
             for idx_m in range(2):
-                alpha_init[int(idx_class_a * (idx_class_a-1) / 2) + idx_class_b, idx_m] = ((mean_class[idx_class_a, 2 * idx + idx_m] - mean_class[idx_class_b, 2 * idx + idx_m]) ** 2) / ((np.sum(var_dist[:, 2 * idx + idx_m].reshape(1,num_device) @ (c_zf_init ** 2)) + var_comm_noise * np.sum(f_vec_init ** 2)) / ((np.sum(c_zf_init)) ** 2) + var_class[2 * idx + idx_m])
+                alpha_init[int(idx_class_a * (idx_class_a-1) / 2) + idx_class_b, idx_m] = (
+                        ((mean_class[idx_class_a, 2 * idx + idx_m] - mean_class[idx_class_b, 2 * idx + idx_m]) ** 2) / 
+                        ((np.sum(var_dist[:, 2 * idx + idx_m].reshape(1,num_device) @ (c_zf_init ** 2)) + var_comm_noise * np.sum(f_vec_init ** 2)) /
+                         ((np.sum(c_zf_init)) ** 2) + var_class[2 * idx + idx_m]))
 
     disc_init = 2 * alpha_init.sum() / num_class / (num_class-1)
 
@@ -276,7 +279,7 @@ def SCA_for_two_PCA_without_RIS(alpha_init,c_zf_init,f_vec_init,num_antenna,powe
     diff = last_value
     count = 1
 
-    while(diff>1e-2 and count<100):
+    while diff>1e-3 and count<100:
         c_zf = cp.Variable((num_device, 1))
 
         x = []
@@ -360,7 +363,7 @@ def SCA_c_Rf_without_RIS(alpha_init,c_zf,f_vec_init,num_antenna,power_tx,channel
         channel_gain_k = channel_gain_hd[:,k]
         channel_gain_device.append(channel_gain_k)
 
-    while(diff>1e-2 and count<100):
+    while diff>1e-3 and count<100:
         for idx_device in range(num_device):
             constrains += [2 * power_tx * channel_gain_device[idx_device] @ f_vec_init.reshape(-1) * f_vec_init.reshape(-1).T @ channel_gain_device[idx_device].T
                 + 4 * power_tx * channel_gain_device[idx_device] @ channel_gain_device[idx_device].T * f_vec_init.reshape(-1) @ (f_vec - f_vec_init.reshape(-1)) - c_zf[idx_device] **2 >= 0]
@@ -520,43 +523,43 @@ for i in range(len(power_list)):
     # discriminant_gain_list[i] = np.sum(discriminant_gain_init)
 
     # without RIS
-    for idx in range(0,int(PCA_dim/2)):
-        ############## initialization ###############
-        f_vec_init = np.ones((num_antenna,1)) / (np.sqrt(num_antenna * 2 * 10 / power_tx))
-        c_zf_init = np.zeros((num_device,1))
-        alpha_init = np.zeros((int(num_class * (num_class - 1) / 2), 2))
-        
-        for k in range(num_device):
-            channel_gain_init = channel_gain_hd[:,k].reshape(-1,1)
-            c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
-            c_zf_init[k] = 1e2 * c_zf_k
-
-        count = 1
-        disc_init = 2 * alpha_init.sum() / num_class / (num_class-1)
-        last_value = disc_init
-        diff = 1
-        discri = 0
-
-        while (diff > 1e-2 and count <100):
-            c_zf, discri, alpha_init = SCA_for_two_PCA_without_RIS(alpha_init,c_zf_init,f_vec_init,num_antenna,power_tx,channel_gain_hd,num_class,num_device)
-            c_zf_init,f_vec_init,alpha_init,discri = SCA_c_Rf_without_RIS(alpha_init,c_zf,f_vec_init,num_antenna,power_tx,channel_gain_hd,num_class,num_device)
-            diff = abs(discri - last_value)
-            last_value = discri
-            count += 1
-
-        print("while finish {}-th".format(idx))
-        discriminant_gain_init.append(discri)
-        data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
-
-    discriminant_gain_baseline_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
+    # for idx in range(0,int(PCA_dim/2)):
+    #     ############## initialization ###############
+    #     f_vec_init = np.ones((num_antenna,1)) / (np.sqrt(num_antenna * 2 * 10 / power_tx))
+    #     c_zf_init = np.zeros((num_device,1))
+    #     alpha_init = np.zeros((int(num_class * (num_class - 1) / 2), 2))
+    #     
+    #     for k in range(num_device):
+    #         channel_gain_init = channel_gain_hd[:,k].reshape(-1,1)
+    #         c_zf_k = 2 * power_tx * channel_gain_init.T @ f_vec_init * f_vec_init.T @ channel_gain_init
+    #         c_zf_init[k] = 1e2 * c_zf_k
+    # 
+    #     count = 1
+    #     disc_init = 2 * alpha_init.sum() / num_class / (num_class-1)
+    #     last_value = disc_init
+    #     diff = 1
+    #     discri = 0
+    # 
+    #     while diff > 1e-3 and count <100:
+    #         c_zf, discri, alpha_init = SCA_for_two_PCA_without_RIS(alpha_init,c_zf_init,f_vec_init,num_antenna,power_tx,channel_gain_hd,num_class,num_device)
+    #         c_zf_init,f_vec_init,alpha_init,discri = SCA_c_Rf_without_RIS(alpha_init,c_zf,f_vec_init,num_antenna,power_tx,channel_gain_hd,num_class,num_device)
+    #         diff = abs(discri - last_value)
+    #         last_value = discri
+    #         count += 1
+    # 
+    #     print("while finish {}-th".format(idx))
+    #     discriminant_gain_init.append(discri)
+    #     data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
+    # 
+    # discriminant_gain_baseline_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
 
     # Random
     f_vec_init = rng.random((num_antenna, 1))  # beamforming init, f 改成0.001*
     c_zf_init = rng.random((num_device, 1))
     
     for _ in range(100):
-        f_vec_init += rng.random((num_antenna, 1)) * 0.6
-        c_zf_init += rng.random((num_device, 1))
+        f_vec_init += rng.random((num_antenna, 1))
+        c_zf_init += rng.random((num_device, 1)) * 0.1
 
     f_vec_init /= 100
     c_zf_init /= 100
@@ -586,7 +589,7 @@ for i in range(len(power_list)):
 # np.save('./save_model/save_results/discriminant_gain_power_with_ris.npy', discriminant_gain_list)
 
 # without ris
-np.save('./save_model/save_results/discriminant_gain_power_without_ris.npy', discriminant_gain_baseline_list)
+# np.save('./save_model/save_results/discriminant_gain_power_without_ris.npy', discriminant_gain_baseline_list)
 
 # random
 np.save('./save_model/save_results/discriminant_gain_power_random.npy', discriminant_gain_random_list)
