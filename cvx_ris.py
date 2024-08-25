@@ -421,21 +421,21 @@ def compute_discriminant_gain(c, f):
     f = np.squeeze(f, axis=-1)
     c = np.tile(c, (batch_size, 1))
     f = np.tile(f, (batch_size,))
-    c = torch.from_numpy(c).cuda()
-    f = torch.from_numpy(f).cuda()
-    c_sum = torch.sum(c, dim=1).unsqueeze(1).cuda()
-    mean_class_1_8 = torch.tensor(mean_class).cuda().reshape((1, num_class * PCA_dim))
+    c = torch.from_numpy(c)
+    f = torch.from_numpy(f)
+    c_sum = torch.sum(c, dim=1).unsqueeze(1)
+    mean_class_1_8 = torch.tensor(mean_class).reshape((1, num_class * PCA_dim))
     mu_hat = (c_sum @ mean_class_1_8).reshape((batch_size, num_class, PCA_dim))
 
-    sigma_hat = torch.zeros(batch_size, PCA_dim).cuda()
-    temp = c_sum ** 2 @ torch.tensor(var_class).cuda().unsqueeze(0) ** 2
+    sigma_hat = torch.zeros(batch_size, PCA_dim)
+    temp = c_sum ** 2 @ torch.tensor(var_class).unsqueeze(0) ** 2
 
     for i in range(temp.shape[1]):
         sigma_hat[:, i] = (temp[:, i] + sum([c[:, k] ** 2 * var_dist_scale for k in range(num_device)]) +
                            var_comm_noise / 2 * (f ** 2))
 
     discgain = torch.zeros((batch_size, int(num_class * (num_class - 1) / 2),
-                            PCA_dim)).cuda()
+                            PCA_dim))
 
     for class_a in range(num_class):
         for class_b in range(class_a):
@@ -548,7 +548,7 @@ for i in range(len(num_ris_list)):
         data_test_pca_add_noise[:,idx*2:idx*2+2] = add_noise_to_normed_pca(data_test_pca_normed[:,idx*2:idx*2+2], c_zf_init, f_vec_init)
 
     discriminant_gain_list[i] = compute_discriminant_gain(c=c_zf_init, f=f_vec_init).cpu()
-    discriminant_gain_list[i] = np.sum(discriminant_gain_init)
+    # discriminant_gain_list[i] = np.sum(discriminant_gain_init)
 
     # without RIS
     # for idx in range(0,int(PCA_dim/2)):
